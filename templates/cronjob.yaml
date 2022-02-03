@@ -1,0 +1,75 @@
+{{- if .Values.cronjobs.enabled -}}
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: {{ template "laravel.fullname" . }}-cron
+  labels:
+    {{ include "laravel.cronLabels" . | nindent 4 }}
+spec:
+  schedule: "{{ .Values.cronjobs.schedule }}"
+  concurrencyPolicy: "{{ .Values.cronjobs.concurrency }}"
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "laravel.cronLabels" . | nindent 12 }}
+        spec:
+          restartPolicy: "{{ .Values.cronjobs.restartPolicy }}"
+          {{- if .Values.image.secret }}
+          imagePullSecrets:
+          - name: {{ .Values.image.secret }}
+          {{- end }}
+          {{- if .Values.nodeSelector }}
+          nodeSelector:
+          {{- range $key, $value := .Values.nodeSelector }}
+            {{ $key }}: {{ $value | quote }}
+          {{- end }}
+          {{- end }}
+          containers:
+          - name: {{ template "laravel.fullname" . }}-cronjobs
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            command: ["/bin/sh", "-c", "trap 'touch /tmp/pod/main-terminated' EXIT && php artisan schedule:run || true"]
+            resources:
+{{ toYaml .Values.cronjobs.resources | indent 14 }}
+            envFrom: 
+            {{- include "laravel.envs" . | trim | nindent 14 }}
+            volumeMounts:
+               {{- if .Values.logger.enabled }}
+               - name: laravel-logs-storage
+                 mountPath: {{ .Values.directory }}/storage/logs
+               - mountPath: /tmp/pod
+                 name: tmp-pod
+                {{- end -}}
+          {{- if .Values.logger.enabled }}
+          - image: "{{ .Values.logger.image }}:{{ .Values.logger.tag }}"
+            name: {{ .Release.Name }}-logs
+            ports:
+                - containerPort: 80
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                ./taildir {{ .Values.directory }}/storage/logs &
+                CHILD_PID=$!
+                (while true; do if [[ -f "/tmp/pod/main-terminated" ]]; then kill $CHILD_PID; fi; sleep 1; done) &
+                wait $CHILD_PID
+                if [[ -f "/tmp/pod/main-terminated" ]]; then exit 0; fi 
+            volumeMounts:
+              - name: laravel-logs-storage
+                mountPath: {{ .Values.directory }}/storage/logs
+              - mountPath: /tmp/pod
+                name: tmp-pod
+          {{- end }}
+          volumes:
+            {{- if .Values.logger.enabled }}
+            - name: laravel-logs-storage
+              emptyDir: {}
+            - name: tmp-pod
+              emptyDir: {}
+            {{- end }}
+  {{- if .Values.cronjobs.startingDeadlineSeconds }}
+  startingDeadlineSeconds: {{ .Values.cronjobs.startingDeadlineSeconds }}
+  {{- end }}
+  successfulJobsHistoryLimit: {{ .Values.cronjobs.successfulJobsHistoryLimit }}
+{{- end }}

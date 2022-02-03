@@ -1,0 +1,186 @@
+replicaCount: 1
+
+image:
+  repository: 
+  tag: 
+  secret:
+
+directory: /app
+
+user: 
+environment: 
+port: 80
+appName: 
+
+annotations: {}
+
+probe:
+  liveness: true
+  readiness: true
+  path: /
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 350Mi
+  requests:
+    cpu: 10m
+    memory: 128Mi
+
+autoscale:
+  enabled: false
+  min: 2
+  max: 5
+  CPULimit: 70
+  MemoryLimit: 512Mi
+
+persistence:
+  enabled: false
+  existingClaim: ""
+  path: storage/app
+  storage: 1Gi
+  policy: ""
+  snapshots: false
+  snapshotDeltas: "PT1H P2D P30D P180D"
+
+ingress:
+  enabled: true
+  tls: []
+  annotations: {}
+  hosts:
+    - # dev.curology.com or something like this 
+
+sessionAffinityConfig:
+  timeoutSeconds: 25
+
+customSecret: ""
+
+nodeSelector:
+
+migrate:
+  enabled: false
+  timeout: 180 # <- activeDeadlineSeconds
+  cmd: "php artisan migrate --force"
+
+logger:
+  enabled: true
+  image: 
+  tag: 
+
+smtp:
+  enabled: false
+  host: smtp.mailgun.org
+  port: 587
+  user: 
+  encryption:
+  password: 
+  timeout: 
+  auth_mode:
+
+cronjobs:
+  enabled: false
+  schedule: "*/1 * * * *"
+  concurrency: "Forbid"
+  restartPolicy: "Never"
+  startingDeadlineSeconds: "200"
+  successfulJobsHistoryLimit: "1"
+  resources:
+    limits:
+      cpu: 150m
+      memory: 150Mi
+    requests:
+      cpu: 10m
+      memory: 100Mi
+
+worker:
+  enabled: false
+  replicaCount: 1
+  autoscale:
+    enabled: false
+    min: 3
+    max: 6
+    CPULimit: 70
+    MemoryLimit: 1568Mi
+  cmd: "php /app/artisan queue:work --sleep=3 --tries=3 --memory=128"
+  resources:
+    limits:
+      cpu: 300m
+      memory: 150Mi
+    requests:
+      cpu: 10m
+      memory: 100Mi
+
+extra_worker:
+  enabled: false
+  replicaCount: 1
+  cmd: "php /app/artisan queue:work --sleep=3 --tries=3"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 150Mi
+    requests:
+      cpu: 10m
+      memory: 150Mi
+
+websocket:
+  enabled: false
+  port: 6001
+  path: /app
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 100m
+      memory: 150Mi
+    requests:
+      cpu: 10m
+      memory: 50Mi
+
+mysql:
+  enabled: false
+  imageTag: 
+  mysqlRootPassword:
+  mysqlUser: ""
+  mysqlPassword: ""
+  mysqlDatabase: ""
+  persistence:
+    enabled: true
+    existingClaim: ""
+    size: 1Gi
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 20m
+    limits:
+      memory: 512Mi
+      cpu: 150m
+
+redis:
+  enabled: false
+  persistence:
+    enabled: false
+    size: 1Gi
+  resources:
+    requests:
+      memory: 30Mi
+      cpu: 10m
+    limits:
+      memory: 30Mi
+      cpu: 50m
+
+elasticsearch:
+  enabled: false
+  image:
+    repository: elasticsearch
+    tag: 
+  persistence:
+    enabled: false
+    accessMode: ReadWriteOnce
+    size: 1Gi
+  java_opts: "-Xms128m -Xmx256m"
+  resources:
+    requests:
+      memory: 350Mi
+      cpu: 10m
+    limits:
+      memory: 350Mi
+      cpu: 2

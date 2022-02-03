@@ -1,0 +1,51 @@
+{{- if .Values.ingress.enabled -}}
+{{- $fullname := (include "laravel.fullname" .) -}}
+{{- $servicePort := .Values.port -}}
+{{- $websocketenabled := .Values.websocket.enabled -}}
+{{- $websocketServicePort := .Values.websocket.port -}}
+{{- $websocketServicePath := .Values.websocket.path -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ template "laravel.fullname" . }}
+  annotations:
+     {{- range $key, $value := .Values.ingress.annotations }}
+      {{ $key }}: {{ $value | quote }}
+     {{- end }}
+spec:
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}
+                port:
+                  number: {{ $servicePort }}
+      {{- if $websocketenabled }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: {{ $websocketServicePath }} 
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}
+                port:
+                  number: {{ $websocketServicePort }}
+      {{- end -}}  
+    {{- end -}}
+{{- end -}}

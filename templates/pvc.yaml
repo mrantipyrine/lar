@@ -1,0 +1,19 @@
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ template "laravel.fullname" . }}-storage
+  annotations:
+    {{- if .Values.persistence.snapshots }}  
+    backup.kubernetes.io/deltas: {{ .Values.persistence.snapshotDeltas }}
+    {{- end }}
+    {{- if .Values.persistence.policy }} 
+    helm.sh/resource-policy: {{ .Values.persistence.policy }}
+    {{- end }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistence.storage }}
+{{- end }}

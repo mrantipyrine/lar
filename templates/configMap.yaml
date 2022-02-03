@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "laravel.fullname" . }}
+data:
+  {{- if .Values.redis.enabled }}
+  REDIS_HOST: {{ template "redis.host" . }}
+  BROADCAST_DRIVER: "redis"
+  {{ end }}
+  {{- if .Values.smtp.enabled }}
+  MAIL_HOST: {{ .Values.smtp.host }}
+  MAIL_PORT: {{ .Values.smtp.port | quote }}
+  MAIL_USERNAME: {{ .Values.smtp.user  }}
+  {{- end }}
+  DB_HOST: {{ template "mysql.host" . }}
+  DB_CONNECTION: mysql
+  DB_DATABASE: {{ .Values.mysql.mysqlDatabase  }}
+  DB_USERNAME: {{ .Values.mysql.mysqlUser  }}
+  {{- else if .Values.sqlproxy.enabled }}
+  DB_HOST: {{ template "sqlproxy.host" . }}
+  DB_USERNAME: {{ .Values.sqlproxy.sqlUser }}
+  DB_DATABASE: {{ .Values.sqlproxy.sqlDatabase }}
+  {{- if eq .Values.sqlproxy.port "5432"}}
+  DB_CONNECTION: pgsql
+  {{- else if eq .Values.sqlproxy.port "3306" }}
+  DB_CONNECTION: mysql
+  {{- end }}
+  {{- end }}
+  {{- if .Values.ingress.enabled }}
+  APP_URL: "https://{{ index .Values.ingress.hosts 0  }}"
+  {{- end }}
+  APP_NAME: {{ .Values.appName  }}
+  DATA_COLLECTOR_KEY: {{ .Values.appName  }}
+  APP_ENV: {{ .Values.environment  }}
+
+
+
+  
+

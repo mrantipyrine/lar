@@ -1,0 +1,21 @@
+apiVersion: v2
+appVersion: "1.0"
+dependencies:
+- condition: redis.enabled
+  name: redis
+  repository: 
+  version: 
+- condition: mysql.enabled
+  name: mysql
+  repository: '@stable'
+  version: 
+- condition: elasticsearch.enabled
+  name: elasticsearch
+  repository: 
+  version: 
+- condition: sqlproxy.enabled
+  name: sqlproxy
+  repository: 
+  version: 
+description: A Helm chart for Kubernetes and Laravel 
+version: "8.1"

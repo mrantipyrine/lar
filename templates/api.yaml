@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "laravel.fullname" . }}
+  labels:
+{{- include "laravel.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "laravel.environment" . }}
+  {{- if .Values.persistence.enabled }}
+  strategy:
+    type: Recreate
+  {{- end }}
+  template:
+    metadata:
+      labels:
+    {{- include "laravel.labels" . | nindent 8 }}
+    {{- if .Values.annotations }}
+      annotations:
+      {{- range $key, $value := .Values.annotations }}
+        {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    {{- end }}
+    spec:
+      {{- if .Values.image.secret }}
+      imagePullSecrets:
+      - name: {{ .Values.image.secret }}
+      {{- end }}
+      {{- if .Values.persistence.enabled }}
+      initContainers:
+      - name: storage-permissions
+        image: busybox
+        command: ["sh", "-c", "chmod 777 /storage"]
+        volumeMounts:
+        - name: storage
+          mountPath: /storage
+      {{- end }}
+      containers:
+      - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        name: {{ template "laravel.fullname" . }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        envFrom:
+        {{- include "laravel.envs" .  | trim | nindent 10}}
+        {{- if .Values.probe.liveness }}
+        livenessProbe:
+          failureThreshold: 15
+          httpGet:
+            path: {{ .Values.probe.path }}
+            port: {{ .Values.port }}
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        {{- end }}
+        {{- if .Values.probe.readiness }}
+        readinessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: {{ .Values.probe.path }}
+            port: {{ .Values.port }}
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        {{- end }}
+        {{- if .Values.persistence.enabled }}
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "mkdir -p {{ .Values.directory }}/{{ .Values.persistence.path }}/public || true && ln -sf {{ .Values.directory }}/{{ .Values.persistence.path }}/public {{ .Values.directory }}/public/storage"]
+        {{- end }}
+        volumeMounts:
+          {{- if .Values.persistence.enabled }}
+          - mountPath: {{ .Values.directory }}/{{ .Values.persistence.path }}
+            name: storage
+          {{- end }}
+          {{- if .Values.logger.enabled }}
+          - name: laravel-logs-storage
+            mountPath: {{ .Values.directory }}/storage/logs
+          {{- end }}
+          {{- if .Values.websocket.enabled }}
+      - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        name: {{ template "laravel.fullname" . }}-websocket
+        command: [ "/bin/sh", "-c" , "php /app/artisan websockets:serve" ] 
+        resources:
+{{ toYaml .Values.websocket.resources | indent 10 }}
+        envFrom:
+        {{- include "laravel.envs" .  | trim | nindent 10}}
+          {{- end }}
+      {{- if .Values.logger.enabled }}
+      - image: "{{ .Values.logger.image }}:{{ .Values.logger.tag }}"
+        name: {{ .Release.Name }}-logs
+        resources:
+          requests:
+            memory: 32Mi
+            cpu: 10m
+          limits:
+            memory: 128Mi
+            cpu: 50m
+        ports:
+            - containerPort: 80
+        args: [ "{{ .Values.directory }}/storage/logs"]
+        volumeMounts:
+          - name: laravel-logs-storage
+            mountPath: {{ .Values.directory }}/storage/logs
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+      {{- range $key, $value := .Values.nodeSelector }}
+        {{ $key }}: {{ $value | quote }}
+      {{- end }}
+      {{- end }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-storage" (include "laravel.fullname" .)) }}
+        {{- end }}
+        {{- if .Values.logger.enabled }}
+        - name: laravel-logs-storage
+          emptyDir: {}
+        {{- end }}

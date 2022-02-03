@@ -1,0 +1,30 @@
+{{- if .Values.worker.autoscale.enabled }}
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "laravel.fullname" . }}-worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "laravel.fullname" . }}-worker
+  minReplicas: {{ .Values.worker.autoscale.min }}
+  maxReplicas: {{ .Values.worker.autoscale.max }}
+  {{- if .Values.worker.autoscale.CPULimit }}
+  metrics: 
+  - type: Resource
+    resource:
+      name: cpu 
+      target:
+        type: Utilization 
+        averageUtilization: {{ .Values.worker.autoscale.CPULimit }}
+  {{ end }}
+  {{- if .Values.worker.autoscale.MemoryLimit }}
+  - type: Resource
+    resource:
+      name: memory 
+      target:
+        type: AverageValue 
+        averageValue: {{ .Values.worker.autoscale.MemoryLimit }}
+  {{ end }}
+{{ end }}

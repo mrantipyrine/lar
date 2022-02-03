@@ -1,0 +1,64 @@
+{{- if .Values.worker.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "laravel.fullname" . }}-worker
+  labels:
+    {{ include "laravel.workerLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "laravel.workerLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "laravel.workerLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.image.secret }}
+      imagePullSecrets:
+      - name: {{ .Values.image.secret }}
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+      {{- range $key, $value := .Values.nodeSelector }}
+        {{ $key }}: {{ $value | quote }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/sh", "-c", "{{ .Values.worker.cmd }}"]
+        name: {{ template "laravel.fullname" . }}-worker
+        resources:
+{{ toYaml .Values.worker.resources | indent 10 }}
+        envFrom:
+        {{- include "laravel.envs" . | trim | nindent 10 }}
+        volumeMounts:
+          {{- if .Values.logger.enabled }}
+          - name: laravel-logs-storage
+            mountPath: {{ .Values.directory }}/storage/logs
+          {{- end -}}
+      {{- if .Values.logger.enabled }}    
+      - image: "{{ .Values.logger.image }}:{{ .Values.logger.tag }}"
+        name: {{ .Release.Name }}-logs
+        resources:
+          requests:
+            memory: 32Mi
+            cpu: 10m
+          limits:
+            memory: 128Mi
+            cpu: 50m
+        ports:
+            - containerPort: 80
+        args: [ "{{ .Values.directory }}/storage/logs"]
+        volumeMounts:
+          - name: laravel-logs-storage
+            mountPath: {{ .Values.directory }}/storage/logs
+      {{- end }}
+      volumes:
+      {{- if .Values.logger.enabled }}
+      - name: laravel-logs-storage
+        emptyDir: {}
+      {{- end }}
+{{- end }}

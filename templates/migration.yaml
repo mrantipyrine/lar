@@ -1,0 +1,24 @@
+{{- if .Values.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "laravel.fullname" . }}-migrate
+  annotations:
+    "helm.sh/hook": post-install, pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  activeDeadlineSeconds: {{ .Values.migrate.timeout }}
+  template:
+    spec:
+      containers:
+      - name: {{ template "laravel.fullname" . }}-db-migrate
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        command: 
+          - sh
+          - -c 
+          - {{ .Values.migrate.cmd }}
+        envFrom:
+        {{- include "laravel.envs" .  | trim | nindent 10}}
+      restartPolicy: Never
+  backoffLimit: 4
+  {{- end }}
